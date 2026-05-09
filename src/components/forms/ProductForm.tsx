@@ -7,6 +7,7 @@ import type { Product } from "@/types/product";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
+import { uploadImage } from "@/services/upload.service";
 
 export type ProductFormData = {
   name: string;
@@ -42,6 +43,7 @@ export function ProductForm({ open, mode, initialData, categories, onSave, onClo
   );
   const [preview, setPreview] = useState<string | null>(initialData?.image ?? null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const priceNum = parseFloat(price) || 0;
@@ -50,20 +52,35 @@ export function ProductForm({ open, mode, initialData, categories, onSave, onClo
     ? Math.round(priceNum * (1 - discountNum / 100))
     : undefined;
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    setImage(url);
+
+    const previewUrl = URL.createObjectURL(file);
+    setPreview(previewUrl);
     setErrors((prev) => ({ ...prev, image: "" }));
+
+    try {
+      setUploading(true);
+      const imageUrl = await uploadImage(file);
+      setImage(imageUrl);
+    } catch (error) {
+      setImage("");
+      setErrors((prev) => ({
+        ...prev,
+        image: error instanceof Error ? error.message : "تعذر رفع الصورة",
+      }));
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   }
 
   function validate() {
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = "اسم المنتج مطلوب";
     if (!categoryId) errs.category = "القسم مطلوب";
-    if (!image) errs.image = "الصورة مطلوبة";
+    if (!image) errs.image = uploading ? "يرجى الانتظار حتى يكتمل رفع الصورة" : "الصورة مطلوبة";
     if (!price || priceNum <= 0) errs.price = "السعر مطلوب";
     if (hasDiscount && (discountNum <= 0 || discountNum >= 100)) errs.discount = "نسبة الخصم يجب أن تكون بين 1 و 99";
     return errs;
@@ -160,8 +177,9 @@ export function ProductForm({ open, mode, initialData, categories, onSave, onClo
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
             <button
               type="button"
+              disabled={uploading}
               onClick={() => fileRef.current?.click()}
-              className="flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-[#f0d0dc] bg-[#fff8fb] text-[#c07080] transition hover:border-[#ed85a8] hover:bg-[#fff2f6]"
+              className="flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-[#f0d0dc] bg-[#fff8fb] text-[#c07080] transition hover:border-[#ed85a8] hover:bg-[#fff2f6] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {preview ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -173,6 +191,7 @@ export function ProductForm({ open, mode, initialData, categories, onSave, onClo
                 </>
               )}
             </button>
+            {uploading && <p className="text-xs text-[#b09098]">جارٍ رفع الصورة...</p>}
             {errors.image && <p className="text-xs text-[#e05080]">{errors.image}</p>}
           </div>
 
@@ -262,7 +281,9 @@ export function ProductForm({ open, mode, initialData, categories, onSave, onClo
 
           {/* Actions */}
           <div className="flex gap-3 pt-1">
-            <Button type="submit" className="h-11 flex-1 rounded-2xl text-base">حفظ المنتج</Button>
+            <Button type="submit" disabled={uploading} className="h-11 flex-1 rounded-2xl text-base">
+              {uploading ? "جارٍ رفع الصورة..." : "حفظ المنتج"}
+            </Button>
             <button
               type="button"
               onClick={onClose}

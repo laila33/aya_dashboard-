@@ -6,6 +6,7 @@ import type { Category } from "@/types/category";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
+import { uploadImage } from "@/services/upload.service";
 
 export type CategoryFormData = {
   name: string;
@@ -37,15 +38,28 @@ export function CategoryForm({ open, mode, initialData, onSave, onClose }: Categ
   const [preview, setPreview] = useState<string | null>(initialData?.image ?? null);
   const [nameError, setNameError] = useState("");
   const [imageError, setImageError] = useState("");
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    setImage(url);
+
+    const previewUrl = URL.createObjectURL(file);
+    setPreview(previewUrl);
     setImageError("");
+
+    try {
+      setUploading(true);
+      const imageUrl = await uploadImage(file);
+      setImage(imageUrl);
+    } catch (error) {
+      setImage("");
+      setImageError(error instanceof Error ? error.message : "تعذر رفع الصورة");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -55,7 +69,7 @@ export function CategoryForm({ open, mode, initialData, onSave, onClose }: Categ
       return;
     }
     if (!image) {
-      setImageError("صورة القسم مطلوبة");
+      setImageError(uploading ? "يرجى الانتظار حتى يكتمل رفع الصورة" : "صورة القسم مطلوبة");
       return;
     }
     onSave({ name: name.trim(), image, isActive });
@@ -129,8 +143,9 @@ export function CategoryForm({ open, mode, initialData, onSave, onClose }: Categ
             />
             <button
               type="button"
+              disabled={uploading}
               onClick={() => fileRef.current?.click()}
-              className="flex h-28 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#f0d0dc] bg-[#fff8fb] text-[#c07080] transition hover:border-[#ed85a8] hover:bg-[#fff2f6]"
+              className="flex h-28 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#f0d0dc] bg-[#fff8fb] text-[#c07080] transition hover:border-[#ed85a8] hover:bg-[#fff2f6] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {preview ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -143,6 +158,9 @@ export function CategoryForm({ open, mode, initialData, onSave, onClose }: Categ
                 </>
               )}
             </button>
+            {uploading && (
+              <p className="text-xs text-[#b09098]">جارٍ رفع الصورة...</p>
+            )}
             {imageError && (
               <p className="text-xs text-[#e05080]">{imageError}</p>
             )}
@@ -163,8 +181,8 @@ export function CategoryForm({ open, mode, initialData, onSave, onClose }: Categ
 
           {/* Action buttons */}
           <div className="flex gap-3 pt-1">
-            <Button type="submit" className="h-11 flex-1 rounded-2xl text-base">
-              حفظ القسم
+            <Button type="submit" disabled={uploading} className="h-11 flex-1 rounded-2xl text-base">
+              {uploading ? "جارٍ رفع الصورة..." : "حفظ القسم"}
             </Button>
             <button
               type="button"

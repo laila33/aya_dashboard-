@@ -105,7 +105,7 @@ export function DashboardHeader({
 
           {/* View site — real external link */}
           <a
-            href="https://aya-sweets.vercel.app"
+            href="https://aya-sweets-website.vercel.app/"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="عرض الموقع في تبويب جديد"
