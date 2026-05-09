@@ -198,6 +198,7 @@ export function DashboardHomeContent() {
                     key={cat.id}
                     name={cat.name}
                     emoji={CATEGORY_EMOJI[cat.name] ?? "🍬"}
+                    image={cat.image}
                   />
                 ))}
               </div>
